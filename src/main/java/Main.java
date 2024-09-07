@@ -14,6 +14,7 @@ public class Main {
             {
                 String rlrfr = generateRoute("RLRFR", 100);
                 int count = (int) rlrfr.chars().filter(ch -> ch == 'R').count();
+                System.out.println(count);
 
                 synchronized (sizeToFreq) {
                     if (!sizeToFreq.containsKey(count)) {
@@ -21,6 +22,7 @@ public class Main {
                     } else {
                         sizeToFreq.put(count, sizeToFreq.get(count) + 1);
                     }
+                    sizeToFreq.notify();
                 }
             }
             );
@@ -28,13 +30,29 @@ public class Main {
             threads.add(thread);
         }
 
+        Thread maxThread = new Thread(()->
+        {
+            while (!Thread.interrupted()) {
+                synchronized (sizeToFreq)
+                {
+                    try {
+                        sizeToFreq.wait();
+                        Integer keyMax = sizeToFreq.entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
+                        System.out.println("Самое частое количество повторений " + keyMax + " (встретилось " + sizeToFreq.get(keyMax) + " раз)");
+
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        });
+        maxThread.start();
+
         for (Thread thread : threads) {
-            thread.join(); // зависаем, ждём когда поток объект которого лежит в thread завершится
+            thread.join();
         }
 
-        Integer keyMax = sizeToFreq.entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
-        System.out.println("Самое частое количество повторений " + keyMax + " (встретилось " + sizeToFreq.get(keyMax) + " раз)");
-        sizeToFreq.forEach((key, value) -> System.out.println(key + " (" + value + " раз)"));
+        maxThread.interrupt();
     }
 
     public static String generateRoute(String letters, int length) {
